@@ -247,6 +247,8 @@ class Cluster:
         # Merge passed in attributes
         self.dot.graph_attr.update(graph_attr)
 
+        self.first_node = None
+
     def __enter__(self):
         setcluster(self)
         return self
@@ -271,6 +273,10 @@ class Cluster:
 
     def subgraph(self, dot: Digraph) -> None:
         self.dot.subgraph(dot)
+
+    def set_first_node(self, node: "Node") -> None:
+        if self.first_node is None:
+            self.first_node = node
 
 
 class Node:
@@ -316,6 +322,7 @@ class Node:
         # If a node is in the cluster context, add it to cluster.
         if self._cluster:
             self._cluster.node(self._id, self.label, **self._attrs)
+            self._cluster.set_first_node(self)
         else:
             self._diagram.node(self._id, self.label, **self._attrs)
 
@@ -352,6 +359,14 @@ class Node:
             return other
         elif isinstance(other, Node):
             return self.connect(other, Edge(self, forward=True))
+        elif isinstance(other, Cluster):
+            edge = Edge(self, forward=True)
+            edge._attrs.update({
+                    "lhead": other.name,
+                    })
+            assert other.first_node is not None
+            getdiagram().dot.graph_attr.update({"compound": "true"})
+            return self.connect(other.first_node, edge)
         else:
             other.forward = True
             other.node = self
